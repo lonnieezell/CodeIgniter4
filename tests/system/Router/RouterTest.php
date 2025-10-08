@@ -1003,4 +1003,173 @@ final class RouterTest extends CIUnitTestCase
         $this->assertSame('productLookup', $router->methodName());
         $this->assertSame(['123/456'], $router->params());
     }
+
+    // FastRoute Engine Integration Tests
+
+    public function testFastRouteWithStaticRoute(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $router->handle('/users');
+
+        $this->assertSame('\Users', $router->controllerName());
+        $this->assertSame('index', $router->methodName());
+    }
+
+    public function testFastRouteWithDynamicRoute(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $router->handle('/posts/42');
+
+        $this->assertSame('\Blog', $router->controllerName());
+        $this->assertSame('show', $router->methodName());
+        $this->assertSame(['42'], $router->params());
+    }
+
+    public function testFastRouteWithMultipleParameters(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $router->handle('/books/123/fiction/456');
+
+        $this->assertSame('\Blog', $router->controllerName());
+        $this->assertSame('show', $router->methodName());
+        $this->assertSame(['456', '123'], $router->params());
+    }
+
+    public function testFastRouteWithClosure(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $result = $router->handle('/closure/42/test');
+
+        $this->assertInstanceOf(Closure::class, $result);
+        $this->assertSame(['42', 'test'], $router->params());
+    }
+
+    public function testFastRouteWithRedirect(): void
+    {
+        $this->expectException(RedirectException::class);
+
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $this->collection->addRedirect('/old', '/new', 301);
+
+        $router = new Router($this->collection, $this->request);
+        $router->handle('/old');
+    }
+
+    public function testFastRouteRootPath(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $router->handle('/');
+
+        $this->assertSame('\Home', $router->controllerName());
+        $this->assertSame('index', $router->methodName());
+    }
+
+    public function testFastRouteWithLocale(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $router->handle('/en/pages');
+
+        $this->assertSame('\App\Pages', $router->controllerName());
+        $this->assertSame('list_all', $router->methodName());
+        $this->assertTrue($router->hasLocale());
+        $this->assertSame('en', $router->getLocale());
+    }
+
+    public function testFastRouteNotFoundThrows404(): void
+    {
+        $this->expectException(PageNotFoundException::class);
+
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = true;
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        $router->handle('/nonexistent/path');
+    }
+
+    public function testLegacyRouterWhenFastRouteDisabled(): void
+    {
+        $routingConfig                = new Routing();
+        $routingConfig->useFastRoute  = false; // Explicitly disabled
+        $routingConfig->defaultNamespace = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        // Should still work with legacy system
+        $router->handle('/users');
+
+        $this->assertSame('\Users', $router->controllerName());
+        $this->assertSame('index', $router->methodName());
+    }
+
+    public function testFastRouteCustomChunkSize(): void
+    {
+        $routingConfig                      = new Routing();
+        $routingConfig->useFastRoute        = true;
+        $routingConfig->fastRouteChunkSize  = 5;
+        $routingConfig->defaultNamespace    = '\\';
+        Factories::injectMock('config', Routing::class, $routingConfig);
+
+        $this->createRouteCollection($routingConfig);
+        $router = new Router($this->collection, $this->request);
+
+        // Should still work with different chunk size
+        $router->handle('/posts/99');
+
+        $this->assertSame('\Blog', $router->controllerName());
+        $this->assertSame('show', $router->methodName());
+        $this->assertSame(['99'], $router->params());
+    }
 }

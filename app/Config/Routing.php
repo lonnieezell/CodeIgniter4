@@ -137,4 +137,35 @@ class Routing extends BaseRouting
      * Default: false
      */
     public bool $translateUriToCamelCase = true;
+
+    /**
+     * Enable FastRoute engine for improved routing performance.
+     *
+     * Uses O(1) hash lookup for static routes and chunked regex
+     * for dynamic routes instead of linear O(n) matching.
+     *
+     * Recommended for applications with 100+ routes.
+     *
+     * Default: false
+     */
+    public bool $useFastRoute = false;
+
+    /**
+     * Number of routes per regex chunk when using FastRoute.
+     *
+     * Lower values (5-8):
+     *   - Faster compilation
+     *   - More regex calls per request
+     *   - Better for many routes with low traffic
+     *
+     * Higher values (15-20):
+     *   - Slower compilation
+     *   - Fewer regex calls per request
+     *   - Better for high-traffic applications
+     *
+     * Default of 10 is a good balance for most applications.
+     *
+     * Default: 10
+     */
+    public int $fastRouteChunkSize = 10;
 }

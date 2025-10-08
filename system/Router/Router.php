@@ -139,6 +139,16 @@ class Router implements RouterInterface
     protected string $permittedURIChars = '';
 
     /**
+     * FastRoute instance for optimized route matching
+     */
+    private ?FastRoute $fastRoute = null;
+
+    /**
+     * Whether to use FastRoute engine
+     */
+    private bool $useFastRoute = false;
+
+    /**
      * Stores a reference to the RouteCollection object.
      */
     public function __construct(RouteCollectionInterface $routes, ?Request $request = null)
@@ -158,6 +168,15 @@ class Router implements RouterInterface
         $this->collection->setHTTPVerb($request->getMethod() === '' ? $_SERVER['REQUEST_METHOD'] : $request->getMethod());
 
         $this->translateURIDashes = $this->collection->shouldTranslateURIDashes();
+
+        // Initialize FastRoute if enabled
+        $routingConfig        = config(Routing::class);
+        $this->useFastRoute   = $routingConfig->useFastRoute ?? false;
+
+        if ($this->useFastRoute) {
+            $chunkSize        = $routingConfig->fastRouteChunkSize ?? 10;
+            $this->fastRoute  = new FastRoute($this->collection, $chunkSize);
+        }
 
         if ($this->collection->shouldAutoRoute()) {
             $autoRoutesImproved = config(Feature::class)->autoRoutesImproved ?? false;
@@ -406,6 +425,11 @@ class Router implements RouterInterface
      */
     protected function checkRoutes(string $uri): bool
     {
+        // Use FastRoute engine if enabled
+        if ($this->useFastRoute) {
+            return $this->checkRoutesFast($uri);
+        }
+
         $routes = $this->collection->getRoutes($this->collection->getHTTPVerb());
 
         // Don't waste any time
@@ -533,6 +557,77 @@ class Router implements RouterInterface
         }
 
         return false;
+    }
+
+    /**
+     * Check routes using FastRoute engine
+     *
+     * This method provides optimized route matching using static lookups
+     * and chunked regex patterns instead of linear O(n) matching.
+     *
+     * @throws RedirectException
+     */
+    private function checkRoutesFast(string $uri): bool
+    {
+        $uri = $uri === '/' ? $uri : trim($uri, '/ ');
+
+        $result = $this->fastRoute->match($uri, $this->collection->getHTTPVerb());
+
+        if ($result === null) {
+            return false;
+        }
+
+        $handler       = $result['handler'];
+        $matchedRoute  = $result['route'];
+        $originalRoute = $result['originalRoute'] ?? $matchedRoute;
+
+        // Handle redirects (reuse existing collection method)
+        if ($this->collection->isRedirect($matchedRoute)) {
+            throw new RedirectException(
+                preg_replace('#\A' . $matchedRoute . '\z#u', $handler, $uri),
+                $this->collection->getRedirectCode($matchedRoute),
+            );
+        }
+
+        // Handle locale detection - use the original route to check for {locale}
+        if (str_contains($originalRoute, '{locale}')) {
+            // Extract locale from URI using the same approach as legacy Router
+            preg_match(
+                '#^' . str_replace('{locale}', '(?<locale>[^/]+)', $originalRoute) . '$#u',
+                $uri,
+                $matched,
+            );
+
+            if (isset($matched['locale'])) {
+                if ($this->collection->shouldUseSupportedLocalesOnly()
+                    && ! in_array($matched['locale'], config(App::class)->supportedLocales, true)) {
+                    throw PageNotFoundException::forLocaleNotSupported($matched['locale']);
+                }
+
+                $this->detectedLocale = $matched['locale'];
+            }
+        }
+
+        // Handle closures (same logic as existing checkRoutes)
+        if (! is_string($handler) && is_callable($handler)) {
+            $this->controller = $handler;
+            $this->params     = $result['params'];
+            $this->setMatchedRoute($matchedRoute, $handler);
+
+            return true;
+        }
+
+        // Replace $1, $2, etc. with actual params
+        foreach ($result['params'] as $index => $param) {
+            $handler = str_replace('$' . ($index + 1), $param, $handler);
+        }
+
+        // Set controller/method (reuse existing setRequest method)
+        $segments = explode('/', $handler);
+        $this->setRequest($segments);
+        $this->setMatchedRoute($matchedRoute, $result['handler']);
+
+        return true;
     }
 
     /**
