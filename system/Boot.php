@@ -54,7 +54,7 @@ class Boot
         static::loadCommonFunctions();
         static::loadAutoloader();
         static::setExceptionHandler();
-        static::initializeKint();
+        static::initializeDebug();
 
         $configCacheEnabled = class_exists(Optimize::class)
             && (new Optimize())->configCacheEnabled;
@@ -96,7 +96,7 @@ class Boot
         static::loadCommonFunctions();
         static::loadAutoloader();
         static::setExceptionHandler();
-        static::initializeKint();
+        static::initializeDebug();
         static::autoloadHelpers();
 
         // We need to force the request to be a CLIRequest since we're in console
@@ -124,7 +124,7 @@ class Boot
         static::loadCommonFunctions();
         static::loadAutoloader();
         static::setExceptionHandler();
-        static::initializeKint();
+        static::initializeDebug();
         static::autoloadHelpers();
 
         static::initializeCodeIgniter();
@@ -147,7 +147,7 @@ class Boot
         static::loadCommonFunctions();
         static::loadAutoloader();
         static::setExceptionHandler();
-        static::initializeKint();
+        static::initializeDebug();
         static::autoloadHelpers();
     }
 
@@ -326,9 +326,17 @@ class Boot
         exit(EXIT_ERROR);
     }
 
-    protected static function initializeKint(): void
+    protected static function initializeDebug(): void
     {
-        service('autoloader')->initializeKint(CI_DEBUG);
+        // Always load the debug helper unless in a protected environment
+        $debugConfig = config('Debug');
+        $isProtected = in_array(ENVIRONMENT, $debugConfig->forbiddenEnvironments, true);
+
+        if ($isProtected) {
+            return;
+        }
+
+        helper('debug');
     }
 
     protected static function loadConfigCache(): FactoriesCache

@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace CodeIgniter\Debug;
 
 use CodeIgniter\CodeIgniter;
+use CodeIgniter\Debug\Dump\Dump;
 use CodeIgniter\Debug\Toolbar\Collectors\BaseCollector;
 use CodeIgniter\Debug\Toolbar\Collectors\Config;
 use CodeIgniter\Debug\Toolbar\Collectors\History;
@@ -26,7 +27,6 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\I18n\Time;
 use Config\Toolbar as ToolbarConfig;
-use Kint\Kint;
 
 /**
  * Displays a toolbar with bits of stats to aid a developer in debugging.
@@ -103,19 +103,13 @@ class Toolbar
                     if (is_string($value)) {
                         $varData[esc($key)] = esc($value);
                     } else {
-                        $oldKintMode       = Kint::$mode_default;
-                        $oldKintCalledFrom = Kint::$display_called_from;
-
-                        Kint::$mode_default        = Kint::MODE_RICH;
-                        Kint::$display_called_from = false;
-
-                        $kint = @Kint::dump($value);
-                        $kint = substr($kint, strpos($kint, '</style>') + 8);
-
-                        Kint::$mode_default        = $oldKintMode;
-                        Kint::$display_called_from = $oldKintCalledFrom;
-
-                        $varData[esc($key)] = $kint;
+                        $dump = Dump::html();
+                        $html = $dump->dump($value);
+                        // Extract only the content after the style tag
+                        if (strpos($html, '</style>') !== false) {
+                            $html = substr($html, strpos($html, '</style>') + 8);
+                        }
+                        $varData[esc($key)] = $html;
                     }
                 }
             }
@@ -417,12 +411,12 @@ class Toolbar
                 return;
             }
 
-            $oldKintMode        = Kint::$mode_default;
-            Kint::$mode_default = Kint::MODE_RICH;
-            $kintScript         = @Kint::dump('');
-            Kint::$mode_default = $oldKintMode;
-            $kintScript         = substr($kintScript, 0, strpos($kintScript, '</style>') + 8);
-            $kintScript         = ($kintScript === '0') ? '' : $kintScript;
+            // Generate the CSS for the dump renderer
+            $dump = Dump::html();
+            $cssOutput = $dump->dump('');
+            // Extract only the style tag
+            $kintScript = substr($cssOutput, 0, strpos($cssOutput, '</style>') + 8);
+            $kintScript = ($kintScript === '0') ? '' : $kintScript;
 
             $script = PHP_EOL
                 . '<script ' . csp_script_nonce() . ' id="debugbar_loader" '

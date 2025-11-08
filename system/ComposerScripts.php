@@ -42,15 +42,6 @@ final class ComposerScripts
      * @var array<string, array<string, string>>
      */
     private static array $dependencies = [
-        'kint-src' => [
-            'license' => __DIR__ . '/../vendor/kint-php/kint/LICENSE',
-            'from'    => __DIR__ . '/../vendor/kint-php/kint/src/',
-            'to'      => __DIR__ . '/ThirdParty/Kint/',
-        ],
-        'kint-resources' => [
-            'from' => __DIR__ . '/../vendor/kint-php/kint/resources/',
-            'to'   => __DIR__ . '/ThirdParty/Kint/resources/',
-        ],
         'escaper' => [
             'license' => __DIR__ . '/../vendor/laminas/laminas-escaper/LICENSE.md',
             'from'    => __DIR__ . '/../vendor/laminas/laminas-escaper/src/',
@@ -72,11 +63,6 @@ final class ComposerScripts
         self::recursiveDelete(self::$path);
 
         foreach (self::$dependencies as $key => $dependency) {
-            // Kint may be removed.
-            if (! is_dir($dependency['from']) && str_starts_with($key, 'kint')) {
-                continue;
-            }
-
             self::recursiveMirror($dependency['from'], $dependency['to']);
 
             if (isset($dependency['license'])) {
@@ -84,8 +70,6 @@ final class ComposerScripts
                 copy($dependency['license'], $dependency['to'] . '/' . $license);
             }
         }
-
-        self::copyKintInitFiles();
     }
 
     /**
@@ -156,19 +140,6 @@ final class ComposerScripts
             } else {
                 @copy($origin, $target);
             }
-        }
-    }
-
-    /**
-     * Copy Kint's init files into `system/ThirdParty/Kint/`
-     */
-    private static function copyKintInitFiles(): void
-    {
-        $originDir = self::$dependencies['kint-src']['from'] . '../';
-        $targetDir = self::$dependencies['kint-src']['to'];
-
-        foreach (['init.php', 'init_helpers.php'] as $kintInit) {
-            @copy($originDir . $kintInit, $targetDir . $kintInit);
         }
     }
 }

@@ -19,11 +19,7 @@ use CodeIgniter\Exceptions\RuntimeException;
 use Composer\Autoload\ClassLoader;
 use Composer\InstalledVersions;
 use Config\Autoload;
-use Config\Kint as KintConfig;
 use Config\Modules;
-use Kint\Kint;
-use Kint\Renderer\CliRenderer;
-use Kint\Renderer\RichRenderer;
 
 /**
  * An autoloader that uses both PSR4 autoloading, and traditional classmaps.
@@ -486,77 +482,5 @@ class Autoloader
     public function loadHelpers(): void
     {
         helper($this->helpers);
-    }
-
-    /**
-     * Initializes Kint
-     */
-    public function initializeKint(bool $debug = false): void
-    {
-        if ($debug) {
-            $this->autoloadKint();
-            $this->configureKint();
-        } elseif (class_exists(Kint::class)) {
-            // In case that Kint is already loaded via Composer.
-            Kint::$enabled_mode = false;
-        }
-
-        helper('kint');
-    }
-
-    private function autoloadKint(): void
-    {
-        // If we have KINT_DIR it means it's already loaded via composer
-        if (! defined('KINT_DIR')) {
-            spl_autoload_register(function ($class): void {
-                $class = explode('\\', $class);
-
-                if (array_shift($class) !== 'Kint') {
-                    return;
-                }
-
-                $file = SYSTEMPATH . 'ThirdParty/Kint/' . implode('/', $class) . '.php';
-
-                if (is_file($file)) {
-                    require_once $file;
-                }
-            });
-
-            require_once SYSTEMPATH . 'ThirdParty/Kint/init.php';
-        }
-    }
-
-    private function configureKint(): void
-    {
-        $config = new KintConfig();
-
-        Kint::$depth_limit         = $config->maxDepth;
-        Kint::$display_called_from = $config->displayCalledFrom;
-        Kint::$expanded            = $config->expanded;
-
-        if (isset($config->plugins) && is_array($config->plugins)) {
-            Kint::$plugins = $config->plugins;
-        }
-
-        $csp = service('csp');
-        if ($csp->enabled()) {
-            RichRenderer::$js_nonce  = $csp->getScriptNonce();
-            RichRenderer::$css_nonce = $csp->getStyleNonce();
-        }
-
-        RichRenderer::$theme  = $config->richTheme;
-        RichRenderer::$folder = $config->richFolder;
-
-        if (isset($config->richObjectPlugins) && is_array($config->richObjectPlugins)) {
-            RichRenderer::$value_plugins = $config->richObjectPlugins;
-        }
-        if (isset($config->richTabPlugins) && is_array($config->richTabPlugins)) {
-            RichRenderer::$tab_plugins = $config->richTabPlugins;
-        }
-
-        CliRenderer::$cli_colors         = $config->cliColors;
-        CliRenderer::$force_utf8         = $config->cliForceUTF8;
-        CliRenderer::$detect_width       = $config->cliDetectWidth;
-        CliRenderer::$min_terminal_width = $config->cliMinWidth;
     }
 }

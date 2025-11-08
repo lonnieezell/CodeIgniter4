@@ -152,12 +152,4 @@ if (! is_file(COMPOSER_PATH)) {
     unset($missingExtensions);
 }
 
-/*
- * ---------------------------------------------------------------
- * INITIALIZE KINT
- * ---------------------------------------------------------------
- */
-
-Services::autoloader()->initializeKint(CI_DEBUG);
-
 exit(1);

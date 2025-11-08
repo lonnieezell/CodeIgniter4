@@ -157,7 +157,6 @@ return RectorConfig::configure()
             __DIR__ . '/system/Database/SQLite3/Utils.php',
             __DIR__ . '/system/HTTP/DownloadResponse.php',
             __DIR__ . '/system/HTTP/SiteURI.php',
-            __DIR__ . '/system/Helpers/kint_helper.php',
             __DIR__ . '/tests/_support/Autoloader/FatalLocator.php',
         ],
 
